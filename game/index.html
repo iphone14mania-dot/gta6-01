@@ -1,14 +1,144 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solmar Bay — Open-World Crime</title>
-<link rel="stylesheet" href="css/style.css">
+<title>Coral Harbor — Open-World Crime</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1c1038;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #app, #app canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #hud-top-right { position: absolute; top: 16px; right: 20px; text-align: right;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #hud-stars { font-size: 30px; letter-spacing: 4px; color: #ffd94c; }
+  #hud-money { font-size: 28px; font-weight: 800; color: #7ee787; margin-top: 2px; }
+  #hud-respect { font-size: 13px; color: #ffd9a0; margin-top: 2px; }
+  #hud-health { margin-top: 8px; width: 220px; height: 12px; background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; overflow: hidden; margin-left: auto; }
+  #hud-health-fill { height: 100%; width: 100%; background: #4caf50; transition: width 0.2s; }
+  #hud-health-text { font-size: 12px; margin-top: 2px; }
+  #hud-objective { position: absolute; top: 16px; left: 20px; max-width: 420px;
+    background: rgba(10, 14, 24, 0.62); border-left: 4px solid #ffd94c; padding: 10px 14px;
+    border-radius: 4px; font-size: 15px; line-height: 1.35; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  #hud-timer { font-size: 22px; font-weight: 800; color: #ffd94c; margin-top: 4px; }
+  #hud-minimap { position: absolute; left: 20px; bottom: 20px; width: 176px; height: 176px;
+    border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; box-shadow: 0 4px 18px rgba(0,0,0,0.6); }
+  #hud-bottom-right { position: absolute; right: 20px; bottom: 20px; text-align: right;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #hud-speed { font-size: 44px; font-weight: 800; line-height: 1; }
+  #hud-speed-unit { font-size: 13px; color: #ccc; }
+  #hud-vehicle { font-size: 14px; color: #ffd9a0; }
+  #hud-weapon { font-size: 18px; font-weight: 700; margin-top: 8px; }
+  #hud-ammo { font-size: 14px; color: #ccc; }
+  #hud-radio { font-size: 12px; color: #9fd8ff; margin-top: 6px; }
+  #hud-crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
+    transform: translate(-50%, -50%); }
+  #hud-crosshair::before, #hud-crosshair::after { content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 3px #000; }
+  #hud-crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #hud-crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+  #hud-toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%) translateY(-8px);
+    background: rgba(10, 14, 24, 0.85); border: 1px solid rgba(255,217,76,0.6); border-radius: 8px;
+    padding: 14px 22px; text-align: center; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    max-width: 520px; }
+  #hud-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #hud-toast-title { font-size: 20px; font-weight: 800; color: #ffd94c; }
+  #hud-toast-body { font-size: 14px; margin-top: 4px; color: #eee; line-height: 1.4; }
+  #hud-damage { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 90px 30px rgba(255, 30, 30, 0.55); transition: opacity 0.15s; }
+  #hud-damage.flash { opacity: 1; }
+
+  /* ---- screens ---- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: none; align-items: center;
+    justify-content: center; flex-direction: column; text-align: center;
+    background: linear-gradient(180deg, rgba(20, 8, 40, 0.55), rgba(20, 8, 40, 0.88)); }
+  .screen.show { display: flex; }
+  .logo { font-size: 84px; font-weight: 900; letter-spacing: 6px; line-height: 0.95;
+    background: linear-gradient(180deg, #fff2b0, #ff9a5c 55%, #ff5c8a);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 6px 40px rgba(255, 120, 80, 0.35); }
+  .tagline { font-size: 19px; color: #ffd9a0; margin-top: 10px; letter-spacing: 2px; }
+  .story { max-width: 560px; font-size: 15px; line-height: 1.55; color: #ddd; margin: 22px 16px 0; }
+  .btn { pointer-events: auto; cursor: pointer; margin-top: 26px; padding: 14px 44px; font-size: 19px;
+    font-weight: 800; letter-spacing: 2px; color: #1c1038; background: #ffd94c; border: none;
+    border-radius: 6px; box-shadow: 0 6px 24px rgba(255, 217, 76, 0.4); }
+  .btn:hover { background: #ffe97a; }
+  .btn.secondary { background: rgba(255,255,255,0.14); color: #fff; box-shadow: none;
+    border: 1px solid rgba(255,255,255,0.4); font-size: 15px; padding: 10px 28px; margin-top: 12px; }
+  .controls { margin-top: 26px; font-size: 13px; color: #bbb; line-height: 1.9; }
+  .controls b { color: #fff; }
+  .screen h2 { font-size: 64px; margin: 0; letter-spacing: 4px; }
+  .screen p { font-size: 17px; color: #ddd; max-width: 480px; line-height: 1.5; }
+  #screen-complete { background: rgba(10, 20, 12, 0.72); }
+  #complete-title { color: #7ee787; }
+  .footer { position: absolute; bottom: 18px; font-size: 12px; color: rgba(255,255,255,0.55); }
+</style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<div id="selftest"></div>
-<script type="module" src="js/main.js"></script>
+<div id="app"></div>
+
+<div id="hud" class="hidden">
+  <div id="hud-top-right">
+    <div id="hud-stars">☆☆☆☆☆</div>
+    <div id="hud-money">$250</div>
+    <div id="hud-respect">Street · 0 respect</div>
+    <div id="hud-health"><div id="hud-health-fill"></div></div>
+    <div id="hud-health-text">100</div>
+  </div>
+  <div id="hud-objective">Drive to the yellow marker to start your first job.</div>
+  <div id="hud-timer"></div>
+  <canvas id="hud-minimap" width="176" height="176"></canvas>
+  <div id="hud-bottom-right">
+    <div><span id="hud-speed">—</span> <span id="hud-speed-unit">km/h</span></div>
+    <div id="hud-vehicle">On foot</div>
+    <div id="hud-weapon">Pistol</div>
+    <div id="hud-ammo">12 / 60</div>
+    <div id="hud-radio">SUNSET FM 88.5</div>
+  </div>
+  <div id="hud-crosshair"></div>
+  <div id="hud-toast"><div id="hud-toast-title"></div><div id="hud-toast-body"></div></div>
+  <div id="hud-damage"></div>
+</div>
+
+<div id="screen-title" class="screen">
+  <div class="logo">CORAL<br>HARBOR</div>
+  <div class="tagline">AN OPEN-WORLD CRIME STORY · SUNSET CITY</div>
+  <div class="story">Milo Reyes came to Coral Harbor with $250 and a borrowed jacket. The Harbor
+    Crew runs these streets — and they need a driver. Eight jobs. Five stars of heat. One city
+    that never stops moving. Steal cars, outrun the CHPD, build respect, and take the crown.</div>
+  <button class="btn" id="btn-start">▶ &nbsp;START ENGINE</button>
+  <div class="controls">
+    <b>WASD</b> move / drive &nbsp;·&nbsp; <b>Mouse</b> look &amp; aim &nbsp;·&nbsp; <b>Click</b> shoot<br>
+    <b>E</b> enter / exit car &nbsp;·&nbsp; <b>Space</b> jump / handbrake &nbsp;·&nbsp; <b>Shift</b> run<br>
+    <b>R</b> reload &nbsp;·&nbsp; <b>1–4</b> weapons &nbsp;·&nbsp; <b>Q</b> radio &nbsp;·&nbsp; <b>P</b> save &nbsp;·&nbsp; <b>Esc</b> pause
+  </div>
+  <div class="footer">A fully original game — its city, characters, story and music are invented for this entry.</div>
+</div>
+
+<div id="screen-pause" class="screen">
+  <h2>PAUSED</h2>
+  <p>Coral Harbor waits for no one. Well — except now.</p>
+  <button class="btn" id="btn-resume">RESUME</button>
+  <button class="btn secondary" id="btn-save">SAVE PROGRESS</button>
+  <button class="btn secondary" id="btn-restart">RESTART GAME</button>
+  <button class="btn secondary" id="btn-title">BACK TO TITLE</button>
+</div>
+
+<div id="screen-over" class="screen">
+  <h2 id="over-title">WASTED</h2>
+  <p id="over-body"></p>
+  <button class="btn" id="btn-continue">BACK ON THE STREET</button>
+</div>
+
+<div id="screen-complete" class="screen">
+  <h2 id="complete-title">Job complete</h2>
+  <p id="complete-body"></p>
+</div>
+
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>
